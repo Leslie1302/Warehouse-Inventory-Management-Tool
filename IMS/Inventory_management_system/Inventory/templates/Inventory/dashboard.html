@@ -1,5 +1,47 @@
 {% extends 'Inventory/base.html' %}
 
 {% block content %}
+    <div class="row">
+        <div class="col-md-10 col-12 mx-auto mt-5">
+            <div class="d-flex justify-content-end">
+                <a href="#" class="btn btn-primary">+</a>
+            </div>
 
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Quantity</th>
+                        <th scope="col">Category</th>
+                        <th scope="col">Code</th>
+                        <th scope="col">Unit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if items|length == 0 %}
+                    <tr>
+                        <th scope="row">-</th>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                    {% endif %}
+
+                    {% for item in items %}
+                    <tr>
+                        <th scope="row">{{ item.id }}</th>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.category.name }}</td>
+                        <td>{{ item.code }}</td>
+                        <td>{{ item.unit.name }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 {% endblock content %}

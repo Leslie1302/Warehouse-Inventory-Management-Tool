@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate, login
 from .forms import UserRegistration, AuthenticationForm
 from django.contrib.auth.views import LogoutView
 from django.contrib.auth.views import LogoutView as BaseLogoutView
+from .models import InventoryItem
 # Create your views here.
 class Index(TemplateView):
     template_name = 'Inventory/index.html'
@@ -11,7 +12,10 @@ class Index(TemplateView):
 
 class Dashboard(View):
     def get(self, request):
-        return render(request, 'Inventory/dashboard.html')
+        items = InventoryItem.objects.filter(user=self.request.user.id).order_by('id')
+
+        return render(request, 'Inventory/dashboard.html', {'items': items})
+
 
 
 class SignUpView(View):
