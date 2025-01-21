@@ -50,7 +50,7 @@ Inventory Manager is a Django-based web application that helps users manage and 
    pip install django
    pip install crispy-forms
    pip install crispy-bootstrap5
-
+   or pip install -r requirements.txt
    ```
 
 4. Apply database migrations:
@@ -63,7 +63,7 @@ Inventory Manager is a Django-based web application that helps users manage and 
    python manage.py runserver
    ```
 
-6. Open your browser and visit: `http://127.0.0.1:8000/`
+6. Open your browser and visit: `http://127.0.0.1:8000/` or hold Ctrl + click on the link in the terminal when you run the server
 
 ## Usage
 
@@ -71,7 +71,6 @@ Inventory Manager is a Django-based web application that helps users manage and 
 2. **Sign In**: Log in using your registered credentials.
 3. **Manage Inventory**:
    - Use the dashboard to add, update, or delete inventory items.
-   - Search for specific items using the search bar.
 4. **Logout**: Click the "Sign Out" button to securely log out.
 
 ## Troubleshooting
