@@ -1,3 +1,2 @@
-django
-crispy-forms
+django-crispy-forms
 crispy-bootstrap5
