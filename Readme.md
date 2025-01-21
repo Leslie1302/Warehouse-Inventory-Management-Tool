@@ -47,7 +47,10 @@ Inventory Manager is a Django-based web application that helps users manage and 
 
 3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install django
+   pip install crispy-forms
+   pip install crispy-bootstrap5
+
    ```
 
 4. Apply database migrations:
