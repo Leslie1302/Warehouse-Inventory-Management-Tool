@@ -1,1 +1,1 @@
-web: gunicorn IMS.Inventory_management_system.wsgi
+web: bash start.sh
