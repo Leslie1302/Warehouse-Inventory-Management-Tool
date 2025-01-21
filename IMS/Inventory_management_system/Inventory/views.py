@@ -1,20 +1,41 @@
 from django.shortcuts import render, redirect
-from django.views.generic import TemplateView, View
+from django.views.generic import TemplateView, View, CreateView, UpdateView, DeleteView
 from django.contrib.auth import authenticate, login
-from .forms import UserRegistration, AuthenticationForm
+from .forms import UserRegistration, AuthenticationForm, InventoryItemForm
 from django.contrib.auth.views import LogoutView
 from django.contrib.auth.views import LogoutView as BaseLogoutView
-from .models import InventoryItem
+from .models import InventoryItem, Category, Unit
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from Inventory_management_system.settings import LOW_QUANTITY
+from django.contrib import messages
 # Create your views here.
 class Index(TemplateView):
     template_name = 'Inventory/index.html'
 
 
-class Dashboard(View):
+class Dashboard(LoginRequiredMixin, View):
     def get(self, request):
         items = InventoryItem.objects.filter(user=self.request.user.id).order_by('id')
 
-        return render(request, 'Inventory/dashboard.html', {'items': items})
+        low_inventory = InventoryItem.objects.filter(
+            user=self.request.user.id,
+            quantity__lte=LOW_QUANTITY
+        )
+
+        if low_inventory.count() > 0:
+            if low_inventory.count() > 1:
+                messages.error(request, f'{low_inventory.count()} items have low inventory')
+            else:
+                messages.error(request, f'{low_inventory.count()} item has low inventory')
+
+
+        low_inventory_ids = InventoryItem.objects.filter(
+			user=self.request.user.id,
+			quantity__lte=LOW_QUANTITY
+		).values_list('id', flat=True)
+           
+        return render(request, 'Inventory/dashboard.html', {'items': items, 'low_inventory_ids' : low_inventory_ids})
 
 
 
@@ -58,3 +79,36 @@ class SignInView(View):
     
 class CustomLogoutView(BaseLogoutView):
     http_method_names = ['get', 'post']  # Allow both GET and POST requests
+
+
+
+class AddItem(LoginRequiredMixin, CreateView):
+    model = InventoryItem
+    form_class = InventoryItemForm
+    template_name = 'Inventory/item_form.html'
+    success_url = reverse_lazy('dashboard')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['categories'] = Category.objects.all()
+        return context
+
+
+
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
+
+class EditItem(LoginRequiredMixin, UpdateView):
+    model = InventoryItem
+    form_class = InventoryItemForm
+    template_name = 'Inventory/item_form.html'
+    success_url = reverse_lazy('dashboard')
+
+class DeleteItem(LoginRequiredMixin, DeleteView):
+    model = InventoryItem
+    form_class = InventoryItemForm
+    template_name = 'Inventory/delete_item.html'
+    success_url = reverse_lazy('dashboard')
+    context_object_name = 'item'
