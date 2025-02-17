@@ -14,28 +14,31 @@ class Index(TemplateView):
     template_name = 'Inventory/index.html'
 
 
+LOW_QUANTITY = 10  # Example threshold
+
 class Dashboard(LoginRequiredMixin, View):
     def get(self, request):
-        items = InventoryItem.objects.filter(user=self.request.user.id).order_by('id')
+        # Get user's groups
+        user_groups = request.user.groups.all()
 
+        # Filter items based on the groups the user belongs to
+        items = InventoryItem.objects.filter(group__in=user_groups).order_by('id')
+
+        # Find low inventory items in user's groups
         low_inventory = InventoryItem.objects.filter(
-            user=self.request.user.id,
+            group__in=user_groups,
             quantity__lte=LOW_QUANTITY
         )
 
-        if low_inventory.count() > 0:
-            if low_inventory.count() > 1:
-                messages.error(request, f'{low_inventory.count()} items have low inventory')
-            else:
-                messages.error(request, f'{low_inventory.count()} item has low inventory')
+        if low_inventory.exists():
+            messages.error(
+                request, 
+                f"{low_inventory.count()} {'items have' if low_inventory.count() > 1 else 'item has'} low inventory"
+            )
 
+        low_inventory_ids = low_inventory.values_list('id', flat=True)
 
-        low_inventory_ids = InventoryItem.objects.filter(
-			user=self.request.user.id,
-			quantity__lte=LOW_QUANTITY
-		).values_list('id', flat=True)
-           
-        return render(request, 'Inventory/dashboard.html', {'items': items, 'low_inventory_ids' : low_inventory_ids})
+        return render(request, 'Inventory/dashboard.html', {'items': items, 'low_inventory_ids': low_inventory_ids})
 
 
 

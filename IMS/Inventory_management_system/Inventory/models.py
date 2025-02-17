@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 # Create your models here.
 
 
@@ -10,7 +10,9 @@ class InventoryItem(models.Model):
     code = models.CharField(max_length=200)
     unit = models.ForeignKey('Unit', on_delete=models.CASCADE) 
     date_created = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Tracks who added the item
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)
+  # Links item to a user group
 
     def __str__(self):
         return self.name
