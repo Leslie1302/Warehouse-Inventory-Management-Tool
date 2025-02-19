@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.views.generic import TemplateView, View, CreateView, UpdateView, DeleteView
 from django.contrib.auth import authenticate, login
-from .forms import UserRegistration, AuthenticationForm, InventoryItemForm
+from .forms import UserRegistration, AuthenticationForm, InventoryItemForm, InventoryItemFormSet
 from django.contrib.auth.views import LogoutView
 from django.contrib.auth.views import LogoutView as BaseLogoutView
 from .models import InventoryItem, Category, Unit
@@ -14,7 +14,7 @@ class Index(TemplateView):
     template_name = 'Inventory/index.html'
 
 
-LOW_QUANTITY = 5  # Adjust this threshold as needed
+LOW_QUANTITY = 5  # Set threshold
 
 class Dashboard(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = 'Inventory.view_inventoryitem'
@@ -29,7 +29,17 @@ class Dashboard(LoginRequiredMixin, PermissionRequiredMixin, View):
             # ✅ Users see only items based on their group
             items = InventoryItem.objects.filter(group__in=user.groups.all())
 
-        return render(request, 'Inventory/dashboard.html', {'items': items})
+        # ✅ Identify low stock items
+        low_inventory_items = items.filter(quantity__lte=LOW_QUANTITY)  
+        low_inventory_ids = list(low_inventory_items.values_list('id', flat=True))  
+        low_inventory_names = list(low_inventory_items.values_list('name', flat=True))  
+
+        return render(request, 'Inventory/dashboard.html', {
+            'items': items,
+            'low_inventory_ids': low_inventory_ids,
+            'low_inventory_items': low_inventory_names  # ✅ Send names for the alert
+        })
+
 
 class SignUpView(View):
     def get(self, request):
@@ -74,21 +84,30 @@ class CustomLogoutView(BaseLogoutView):
 
 
 
-class AddItem(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
-    model = InventoryItem
-    form_class = InventoryItemForm
-    template_name = 'Inventory/item_form.html'
-    success_url = reverse_lazy('dashboard')
-
+class AddItem(LoginRequiredMixin, PermissionRequiredMixin, View):
     permission_required = 'Inventory.add_inventoryitem'
+    template_name = 'Inventory/item_form.html'
 
-    def form_valid(self, form):
-        item = form.save(commit=False)
-        if self.request.user.groups.exists():
-            item.group = self.request.user.groups.first()  # Assign first group
-        item.user = self.request.user  # Track who created it
-        item.save()
-        return super().form_valid(form)
+    def get(self, request):
+        formset = InventoryItemFormSet()
+        return render(request, self.template_name, {'formset': formset})
+
+    def post(self, request):
+        formset = InventoryItemFormSet(request.POST)
+        if formset.is_valid():
+            for form in formset:
+                if form.cleaned_data:
+                    item = form.save(commit=False)
+                    item.user = request.user  # Assign the user who created the item
+
+                    # Assign to the first group the user belongs to (if any)
+                    if request.user.groups.exists():
+                        item.group = request.user.groups.first()
+
+                    item.save()
+            return redirect(reverse_lazy('dashboard'))
+        return render(request, self.template_name, {'formset': formset})
+
 
 
 class EditItem(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
@@ -106,3 +125,4 @@ class DeleteItem(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     context_object_name = 'item'
 
     permission_required = 'Inventory.delete_inventoryitem'
+
