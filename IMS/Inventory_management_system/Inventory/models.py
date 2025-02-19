@@ -11,8 +11,16 @@ class InventoryItem(models.Model):
     unit = models.ForeignKey('Unit', on_delete=models.CASCADE) 
     date_created = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Tracks who added the item
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)
-  # Links item to a user group
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)  # Tracks which group the item belongs to
+
+
+    def form_valid(self, form):
+        item = form.save(commit=False)
+        if self.request.user.groups.exists():
+            item.group = self.request.user.groups.first()  # Assign first group
+        item.user = self.request.user  # Track who created it
+        item.save()
+        return super().form_valid(form)
 
     def __str__(self):
         return self.name

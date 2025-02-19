@@ -5,7 +5,7 @@ from .forms import UserRegistration, AuthenticationForm, InventoryItemForm
 from django.contrib.auth.views import LogoutView
 from django.contrib.auth.views import LogoutView as BaseLogoutView
 from .models import InventoryItem, Category, Unit
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
 from Inventory_management_system.settings import LOW_QUANTITY
 from django.contrib import messages
@@ -14,33 +14,22 @@ class Index(TemplateView):
     template_name = 'Inventory/index.html'
 
 
-LOW_QUANTITY = 10  # Example threshold
+LOW_QUANTITY = 5  # Adjust this threshold as needed
 
-class Dashboard(LoginRequiredMixin, View):
+class Dashboard(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = 'Inventory.view_inventoryitem'
+
     def get(self, request):
-        # Get user's groups
-        user_groups = request.user.groups.all()
+        user = request.user
 
-        # Filter items based on the groups the user belongs to
-        items = InventoryItem.objects.filter(group__in=user_groups).order_by('id')
+        # ✅ Admins see everything
+        if user.is_superuser:
+            items = InventoryItem.objects.all()
+        else:
+            # ✅ Users see only items based on their group
+            items = InventoryItem.objects.filter(group__in=user.groups.all())
 
-        # Find low inventory items in user's groups
-        low_inventory = InventoryItem.objects.filter(
-            group__in=user_groups,
-            quantity__lte=LOW_QUANTITY
-        )
-
-        if low_inventory.exists():
-            messages.error(
-                request, 
-                f"{low_inventory.count()} {'items have' if low_inventory.count() > 1 else 'item has'} low inventory"
-            )
-
-        low_inventory_ids = low_inventory.values_list('id', flat=True)
-
-        return render(request, 'Inventory/dashboard.html', {'items': items, 'low_inventory_ids': low_inventory_ids})
-
-
+        return render(request, 'Inventory/dashboard.html', {'items': items})
 
 class SignUpView(View):
     def get(self, request):
@@ -85,33 +74,35 @@ class CustomLogoutView(BaseLogoutView):
 
 
 
-class AddItem(LoginRequiredMixin, CreateView):
+class AddItem(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = InventoryItem
     form_class = InventoryItemForm
     template_name = 'Inventory/item_form.html'
     success_url = reverse_lazy('dashboard')
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['categories'] = Category.objects.all()
-        return context
-
-
+    permission_required = 'Inventory.add_inventoryitem'
 
     def form_valid(self, form):
-        form.instance.user = self.request.user
+        item = form.save(commit=False)
+        if self.request.user.groups.exists():
+            item.group = self.request.user.groups.first()  # Assign first group
+        item.user = self.request.user  # Track who created it
+        item.save()
         return super().form_valid(form)
 
 
-class EditItem(LoginRequiredMixin, UpdateView):
+class EditItem(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = InventoryItem
     form_class = InventoryItemForm
     template_name = 'Inventory/item_form.html'
     success_url = reverse_lazy('dashboard')
 
-class DeleteItem(LoginRequiredMixin, DeleteView):
+    permission_required = 'Inventory.change_inventoryitem'
+
+class DeleteItem(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     model = InventoryItem
-    form_class = InventoryItemForm
     template_name = 'Inventory/delete_item.html'
     success_url = reverse_lazy('dashboard')
     context_object_name = 'item'
+
+    permission_required = 'Inventory.delete_inventoryitem'
