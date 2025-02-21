@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User, Group
+from django.dispatch import receiver
+from django.db.models.signals import post_save
 # Create your models here.
 
 
@@ -37,7 +39,41 @@ class Unit(models.Model):
         return self.name
 
 
+def get_default_group():
+    return Group.objects.get(name="default").id  # Adjust based on your logic
+
+def get_default_unit():
+    return Unit.objects.first().id  # Adjust based on your logic
 
 
+class MaterialOrder(models.Model):
+    name = models.CharField(max_length=200)
+    quantity = models.IntegerField()
+    category = models.ForeignKey('Category', on_delete=models.SET_NULL, blank=True, null=True)
+    code = models.CharField(max_length=200, unique=True, blank=False, default="Enter code")
+    unit = models.ForeignKey(Unit, on_delete=models.CASCADE)
+    date_requested = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, blank=True, null=True)
+    status = models.CharField(
+        max_length=20, 
+        choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
+        default='Pending'
+    )
 
-        
+    def __str__(self):
+        return f"{self.name} - {self.quantity}"
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.username} Profile"
+
+    @property
+    def profile_picture_url(self):
+        """Return a default profile picture if none is set."""
+        if self.profile_picture:
+            return self.profile_picture.url
+        return '/static/images/default_profile.png'

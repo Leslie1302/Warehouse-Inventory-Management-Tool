@@ -2,7 +2,7 @@ from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 from django.contrib.auth.models import User
 from django.utils.timezone import now
-from Inventory.models import InventoryItem, Category, Unit
+from Inventory.models import InventoryItem, Category, Unit, MaterialOrder
 from .models import AuditLog
 import json
 
@@ -57,15 +57,16 @@ def track_category_changes(sender, instance, **kwargs):
         changes = {field: {'old': getattr(old_instance, field), 'new': getattr(instance, field)}
                    for field in ['name'] if getattr(old_instance, field) != getattr(instance, field)}
         if changes:
-            log_action(instance, 'Updated', user=instance.user, changes=changes)
+            log_action(instance, 'Updated', user=getattr(instance, 'user', None), changes=changes)
     except Category.DoesNotExist:
         pass
 
 @receiver(post_save, sender=Category)
 def log_category_save(sender, instance, created, **kwargs):
     if created:
-        log_action(instance, 'Created', user=instance.user)
+        log_action(instance, 'Created', user=getattr(instance, 'user', None))
 
 @receiver(post_delete, sender=Category)
 def log_category_delete(sender, instance, **kwargs):
-    log_action(instance, 'Deleted', user=instance.user)
+    log_action(instance, 'Deleted', user=getattr(instance, 'user', None))
+

@@ -1,0 +1,16 @@
+{% extends 'Inventory/base.html' %}
+
+{% block title %}Request Material{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Request Material</h2>
+    <form method="POST">
+        {% csrf_token %}
+        <div class="mb-3">
+            {{ form.as_p }}
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Request</button>
+    </form>
+</div>
+{% endblock %}

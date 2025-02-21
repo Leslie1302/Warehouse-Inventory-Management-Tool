@@ -1,0 +1,60 @@
+{% extends 'Inventory/base.html' %}
+{% load static %}  <!-- Load static files -->
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mt-4">User Profile</h2>
+    <hr>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <!-- Profile Picture Section -->
+        <div class="col-md-4 text-center">
+            {% if user.profile.profile_picture %}
+                <img src="{{ user.profile.profile_picture.url }}" class="rounded-circle img-thumbnail" width="150" alt="Profile Picture">
+            {% else %}
+                <img src="{% static 'images/default_profile.png' %}" class="rounded-circle img-thumbnail" width="150" alt="Default Profile Picture">
+            {% endif %}
+            <h4>{{ user.username }}</h4>
+        </div>
+
+        <!-- Profile Update Form -->
+        <div class="col-md-8">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <fieldset>
+                    <legend>Update Information</legend>
+                    <div class="form-group">
+                        {{ user_form.as_p }}
+                    </div>
+                    <div class="form-group">
+                        {{ profile_form.as_p }}
+                    </div>
+                    <button type="submit" name="update_info" class="btn btn-primary">Update</button>
+                </fieldset>
+            </form>
+
+            <hr>
+
+            <!-- Password Change Form -->
+            <form method="POST">
+                {% csrf_token %}
+                <fieldset>
+                    <legend>Change Password</legend>
+                    <div class="form-group">
+                        {{ password_form.as_p }}
+                    </div>
+                    <button type="submit" name="change_password" class="btn btn-danger">Change Password</button>
+                </fieldset>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

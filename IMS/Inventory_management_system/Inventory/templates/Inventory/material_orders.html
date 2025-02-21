@@ -1,0 +1,124 @@
+{% extends 'Inventory/base.html' %}
+
+{% block content %}
+<h2>My Material Requests</h2>
+
+<table border="1" style="width:100%; border-collapse: collapse;">
+    <thead>
+        <tr style="background-color: #f2f2f2;">
+            <th style="padding: 8px;">User</th>
+            <th style="padding: 8px;">Material</th>
+            <th style="padding: 8px; text-align: center;">Quantity</th>
+            <th style="padding: 8px; text-align: center;">Status</th>
+            <th style="padding: 8px; text-align: center;">Date Requested</th>
+            <th style="padding: 8px; text-align: center;">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+            <tr id="order-{{ order.id }}">
+                <td style="padding: 8px;">
+                    {% if order.user %}
+                        {{ order.user.username }}
+                    {% else %}
+                        Anonymous
+                    {% endif %}
+                </td>
+                <td style="padding: 8px;">{{ order.name }}</td>
+                <td style="padding: 8px; text-align: center;">{{ order.quantity }}</td>
+                <td style="padding: 8px; text-align: center;" id="status-{{ order.id }}">
+                    {% if order.status == "Pending" %}
+                        ⏳ Pending
+                    {% elif order.status == "Seen" %}
+                         Seen
+                    {% elif order.status == "✅ Completed" %}
+                        ✅ Completed
+                    {% else %}
+                        🔄 {{ order.get_status_display }}
+                    {% endif %}
+                </td>
+                <td style="padding: 8px; text-align: center;">{{ order.date_requested }}</td>
+                <td style="padding: 8px; text-align: center;">
+                    <button id="seen-btn-{{ order.id }}" 
+                            onclick="updateStatus({{ order.id }}, 'Seen')" 
+                            style="padding: 5px 10px; background-color: #ffcc00; border: none; color: black; cursor: pointer; border-radius: 5px;"
+                            {% if order.status != 'Pending' %}disabled{% endif %}>
+                         Seen
+                    </button>
+                    <button id="completed-btn-{{ order.id }}" 
+                            onclick="updateStatus({{ order.id }}, 'Completed')" 
+                            style="padding: 5px 10px; background-color: #28a745; border: none; color: white; cursor: pointer; border-radius: 5px;"
+                            {% if order.status != 'Seen' %}disabled{% endif %}>
+                        ✅ Completed
+                    </button>
+                </td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 10px;">No material requests found.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div style="margin-top: 10px;">
+    <a href="{% url 'request_material' %}" 
+       style="display: inline-block; padding: 10px 15px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+        ➕ Request New Material
+    </a>
+</div>
+
+<script>
+  function updateStatus(orderId, newStatus) {
+    fetch(`/update_material_status/${orderId}/${newStatus}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({}) // Send an empty JSON payload
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`status-${orderId}`).innerText = newStatus;
+            updateButtons(orderId, newStatus);
+        } else {
+            alert(data.error || "Failed to update status.");
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function updateButtons(orderId, newStatus) {
+    const seenBtn = document.getElementById(`seen-btn-${orderId}`);
+    const completedBtn = document.getElementById(`completed-btn-${orderId}`);
+
+    if (newStatus === "Seen") {
+        seenBtn.disabled = true;
+        completedBtn.disabled = false;
+    } else if (newStatus === "Completed") {
+        seenBtn.disabled = true;
+        completedBtn.disabled = true;
+    }
+}
+
+// CSRF Token Helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+</script>
+
+{% endblock %}

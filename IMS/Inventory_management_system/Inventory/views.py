@@ -1,14 +1,19 @@
 from django.shortcuts import render, redirect
 from django.views.generic import TemplateView, View, CreateView, UpdateView, DeleteView
-from django.contrib.auth import authenticate, login
-from .forms import UserRegistration, AuthenticationForm, InventoryItemForm, InventoryItemFormSet
+from django.contrib.auth import authenticate, login, update_session_auth_hash
+from .forms import UserRegistration, AuthenticationForm, InventoryItemForm, InventoryItemFormSet, MaterialOrderForm, UserUpdateForm, ProfileUpdateForm, PasswordChangeForm
 from django.contrib.auth.views import LogoutView
 from django.contrib.auth.views import LogoutView as BaseLogoutView
-from .models import InventoryItem, Category, Unit
+from .models import InventoryItem, Category, Unit, MaterialOrder, Profile
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
 from Inventory_management_system.settings import LOW_QUANTITY
 from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
 # Create your views here.
 class Index(TemplateView):
     template_name = 'Inventory/index.html'
@@ -126,3 +131,74 @@ class DeleteItem(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
 
     permission_required = 'Inventory.delete_inventoryitem'
 
+def request_material(request):
+    if request.method == 'POST':
+        form = MaterialOrderForm(request.POST)
+        if form.is_valid():
+            material_order = form.save(commit=False)
+            material_order.user = request.user  # Assign the logged-in user
+            material_order.group = request.user.groups.first()  # Assign user's group
+            material_order.save()
+            return redirect('dashboard')  # Redirect to dashboard after request
+    else:
+        form = MaterialOrderForm()
+    
+    return render(request, 'Inventory/request_material.html', {'form': form})
+
+def material_orders(request):
+    orders = MaterialOrder.objects.filter(user=request.user).order_by('-date_requested')
+    return render(request, 'Inventory/material_orders.html', {'orders': orders})
+
+@csrf_protect
+def update_material_status(request, order_id, new_status):
+    if request.method == "POST":
+        order = get_object_or_404(MaterialOrder, id=order_id)
+        if new_status in ["Pending", "Seen", "Completed"]:
+            order.status = new_status
+            order.save()
+            return JsonResponse({"success": True, "new_status": order.status})
+        return JsonResponse({"success": False, "error": "Invalid status."})
+    return JsonResponse({"success": False, "error": "Invalid request method."})
+
+@login_required
+def profile(request):
+    profile, created = Profile.objects.get_or_create(user=request.user)
+
+    if not profile.profile_picture:  # Prevents errors
+        profile.profile_picture = None
+
+    if request.method == 'POST':
+        user_form = UserUpdateForm(request.POST, instance=request.user)
+        profile_form = ProfileUpdateForm(request.POST, request.FILES, instance=profile)
+        password_form = PasswordChangeForm(request.POST)
+
+        if 'update_info' in request.POST:
+            if user_form.is_valid() and profile_form.is_valid():
+                user_form.save()
+                profile_form.save()
+                messages.success(request, 'Your profile has been updated!')
+                return redirect('profile')
+
+        elif 'change_password' in request.POST:
+            if password_form.is_valid():
+                user = request.user
+                if user.check_password(password_form.cleaned_data['old_password']):
+                    user.set_password(password_form.cleaned_data['new_password'])
+                    user.save()
+                    update_session_auth_hash(request, user)  # Keep user logged in
+                    messages.success(request, 'Your password has been updated!')
+                    return redirect('profile')
+                else:
+                    messages.error(request, 'Old password is incorrect.')
+
+    else:
+        user_form = UserUpdateForm(instance=request.user)
+        profile_form = ProfileUpdateForm(instance=profile)
+        password_form = PasswordChangeForm()
+
+    return render(request, 'Inventory/profile.html', {
+        'user_form': user_form,
+        'profile_form': profile_form,
+        'password_form': password_form,
+        'profile': profile  # Ensure profile is passed to template
+    })

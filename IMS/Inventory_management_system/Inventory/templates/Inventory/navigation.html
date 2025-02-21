@@ -1,27 +1,47 @@
-<nav class="navbar navbar-expand-lg bg-light">
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
     <div class="container-fluid">
-        <a class="navbar-brand" href="{% url 'index' %}">Inventory Manager</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <a class="navbar-brand fw-bold text-primary" href="{% url 'index' %}">📦 Inventory Manager</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-            <ul class="navbar-nav">
+            <ul class="navbar-nav align-items-center">
                 {% if user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="#">{{ user.username }}</a>
+                        <a class="nav-link text-dark fw-semibold" href="{% url 'dashboard' %}">📊 Dashboard</a>
                     </li>
                     <li class="nav-item">
-                        <form action="{% url 'logout' %}" method="post" style="display:inline;">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-link nav-link">Sign Out</button>
-                        </form>
+                        <a class="nav-link text-dark fw-semibold" href="{% url 'request_material' %}">📥 Request Material</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-dark fw-semibold" href="{% url 'material_orders' %}">📦 Material Orders</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center text-dark fw-semibold" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown">
+                            {% if user.profile.image %}
+                                <img src="{{ user.profile.image.url }}" class="rounded-circle me-2" width="30" height="30">
+                            {% else %}
+                                <img src="https://via.placeholder.com/30" class="rounded-circle me-2">
+                            {% endif %}
+                            {{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'profile' %}">👤 View Profile</a></li>
+                            <li>
+                                <form action="{% url 'logout' %}" method="post">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger">🚪 Sign Out</button>
+                                </form>
+                            </li>
+                        </ul>
                     </li>
                 {% else %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'signin' %}">Sign In</a>
+                        <a class="nav-link text-dark fw-semibold" href="{% url 'signin' %}">🔑 Sign In</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'signup' %}">Sign Up</a>
+                        <a class="nav-link text-dark fw-semibold" href="{% url 'signup' %}">📝 Sign Up</a>
                     </li>
                 {% endif %}
             </ul>
