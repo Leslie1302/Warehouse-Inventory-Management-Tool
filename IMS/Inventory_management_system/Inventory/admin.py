@@ -1,12 +1,14 @@
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
-from .models import InventoryItem, Category, Unit
+from .models import InventoryItem, Category, Unit, MaterialOrder, Profile
 
 # Register your models here.
 
 admin.site.register(InventoryItem)
 admin.site.register(Category)
 admin.site.register(Unit)
+admin.site.register(MaterialOrder)
+admin.site.register(Profile)
 
 # Register LogEntry
 @admin.register(LogEntry)

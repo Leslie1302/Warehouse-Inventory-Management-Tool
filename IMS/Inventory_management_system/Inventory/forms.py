@@ -57,8 +57,3 @@ class PasswordChangeForm(forms.Form):
         if new_password != confirm_password:
             raise forms.ValidationError("New passwords do not match.")
         return cleaned_data
-
-class ProfileUpdateForm(forms.ModelForm):
-    class Meta:
-        model = Profile
-        fields = ['profile_picture']

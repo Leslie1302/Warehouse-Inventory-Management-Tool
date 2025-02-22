@@ -1,9 +1,8 @@
+# Inventory/models.py
 from django.db import models
 from django.contrib.auth.models import User, Group
 from django.dispatch import receiver
 from django.db.models.signals import post_save
-# Create your models here.
-
 
 class InventoryItem(models.Model):
     name = models.CharField(max_length=200)
@@ -12,12 +11,11 @@ class InventoryItem(models.Model):
     code = models.CharField(max_length=200)
     unit = models.ForeignKey('Unit', on_delete=models.CASCADE) 
     date_created = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Tracks who added the item
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)  # Tracks which group the item belongs to
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.name
-
 
 class Category(models.Model):
     name = models.CharField(max_length=200)
@@ -28,7 +26,6 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-
 class Unit(models.Model):
     name = models.CharField(max_length=200)
 
@@ -38,19 +35,17 @@ class Unit(models.Model):
     def __str__(self):
         return self.name
 
-
 def get_default_group():
-    return Group.objects.get(name="default").id  # Adjust based on your logic
+    return Group.objects.get(name="default").id
 
 def get_default_unit():
-    return Unit.objects.first().id  # Adjust based on your logic
-
+    return Unit.objects.first().id
 
 class MaterialOrder(models.Model):
     name = models.CharField(max_length=200)
     quantity = models.IntegerField()
     category = models.ForeignKey('Category', on_delete=models.SET_NULL, blank=True, null=True)
-    code = models.CharField(max_length=200, unique=True, blank=False, default="Enter code")
+    code = models.CharField(max_length=200, blank=False, default="Enter code")
     unit = models.ForeignKey(Unit, on_delete=models.CASCADE)
     date_requested = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
@@ -61,6 +56,8 @@ class MaterialOrder(models.Model):
         default='Pending'
     )
 
+    class Meta:
+        verbose_name_plural = 'orders'
     def __str__(self):
         return f"{self.name} - {self.quantity}"
 
@@ -73,7 +70,6 @@ class Profile(models.Model):
 
     @property
     def profile_picture_url(self):
-        """Return a default profile picture if none is set."""
         if self.profile_picture:
             return self.profile_picture.url
         return '/static/images/default_profile.png'

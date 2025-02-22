@@ -4,9 +4,7 @@
     {% if messages %}
         <div class="row mt-3">
             {% for message in messages %}
-                <div class="col-md-10 col-12 mx-auto alert 
-                    {% if message.tags == 'error' %} alert-danger 
-                    {% else %} alert-success {% endif %}">
+                <div class="col-md-10 col-12 mx-auto alert alert-{{ message.tags }}">
                     {{ message }}
                 </div>
             {% endfor %}
@@ -19,9 +17,7 @@
             ⚠️ 
             {% if low_inventory_items|length <= 3 %}
                 The following materials are low in stock:  
-                <strong>
-                    {{ low_inventory_items|join:", " }}
-                </strong>
+                <strong>{{ low_inventory_items|join:", " }}</strong>
             {% else %}
                 {{ low_inventory_items|length }} materials are low in stock!
             {% endif %}
@@ -31,7 +27,7 @@
     <div class="row">
         <div class="col-md-10 col-12 mx-auto mt-5">
             <div class="d-flex justify-content-end">
-                <a href="{% url 'add-item' %}" class="btn btn-primary">+</a>
+                <a href="{% url 'add-item' %}" class="btn btn-primary">+ Add Item</a>
             </div>
 
             <table class="table table-hover table-striped">
@@ -41,41 +37,35 @@
                         <th scope="col">Name</th>
                         <th scope="col">Qty</th>
                         <th scope="col">Category</th>
-                        <th scope="col"></th>
-                        <th scope="col"></th>
+                        <th scope="col" colspan="2" class="text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% if items|length == 0 %}
+                    {% if not items %}
                         <tr>
-                            <th scope="row">-</th>
-                            <td>-</td>
-                            <td>-</td>
-                            <td>-</td>
-                            <td>-</td>
-                            <td></td>
+                            <td colspan="6" class="text-center text-muted">No items available</td>
                         </tr>
+                    {% else %}
+                        {% for item in items %}
+                            <tr>
+                                <th scope="row">{{ item.id }}</th>
+                                <td>{{ item.name }}</td>
+
+                                <!-- ✅ Show Low Stock in Red -->
+                                <td class="{% if item.id in low_inventory_ids %} text-danger {% endif %}">
+                                    {{ item.quantity }}
+                                </td>
+
+                                <td>{{ item.category.name }}</td>
+                                <td class="text-center">
+                                    <a href="{% url 'edit-item' item.id %}" class="btn btn-outline-secondary">Edit</a>
+                                </td>
+                                <td class="text-center">
+                                    <a href="{% url 'delete-item' item.id %}" class="btn btn-danger">Delete</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
                     {% endif %}
-
-                    {% for item in items %}
-                        <tr>
-                            <th scope="row">{{ item.id }}</th>
-                            <td>{{ item.name }}</td>
-
-                            <!-- ✅ Show Low Stock in Red -->
-                            <td {% if item.id in low_inventory_ids %} class="text-danger" {% endif %}>
-                                {{ item.quantity }}
-                            </td>
-
-                            <td>{{ item.category.name }}</td>
-                            <td>
-                                <a href="{% url 'edit-item' item.id %}" class="btn btn-outline-secondary">Edit</a>
-                            </td>
-                            <td>
-                                <a href="{% url 'delete-item' item.id %}" class="btn btn-secondary">Delete</a>
-                            </td>
-                        </tr>
-                    {% endfor %}
                 </tbody>
             </table>
         </div>
