@@ -6580,3 +6580,79 @@ Bad Request: /update_material_status/8/Partial/
 "POST /update_material_status/8/Partial/ HTTP/1.1" 400 56
 Bad Request: /update_material_status/8/Partial/
 "POST /update_material_status/8/Partial/ HTTP/1.1" 400 56
+Internal Server Error: /material-heatmap/
+Traceback (most recent call last):
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/contrib/auth/mixins.py", line 73, in dispatch
+    return super().dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 143, in dispatch
+    return handler(request, *args, **kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/Inventory_management_system/Inventory/views.py", line 601, in post
+    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+               ^^^^^^^^^^^^
+NameError: name 'HttpResponse' is not defined. Did you mean: 'JsonResponse'?
+"POST /material-heatmap/?type=stock&period=week HTTP/1.1" 500 90271
+Internal Server Error: /material-heatmap/
+Traceback (most recent call last):
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/contrib/auth/mixins.py", line 73, in dispatch
+    return super().dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 143, in dispatch
+    return handler(request, *args, **kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/Inventory_management_system/Inventory/views.py", line 597, in post
+    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+               ^^^^^^^^^^^^
+NameError: name 'HttpResponse' is not defined. Did you mean: 'JsonResponse'?
+"POST /material-heatmap/?type=stock&period=week HTTP/1.1" 500 90271
+Internal Server Error: /material-heatmap/
+Traceback (most recent call last):
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/contrib/auth/mixins.py", line 73, in dispatch
+    return super().dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 143, in dispatch
+    return handler(request, *args, **kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/Inventory_management_system/Inventory/views.py", line 597, in post
+    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+               ^^^^^^^^^^^^
+NameError: name 'HttpResponse' is not defined. Did you mean: 'JsonResponse'?
+"POST /material-heatmap/ HTTP/1.1" 500 89771
+Internal Server Error: /material-heatmap/
+Traceback (most recent call last):
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/contrib/auth/mixins.py", line 73, in dispatch
+    return super().dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 143, in dispatch
+    return handler(request, *args, **kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/Inventory_management_system/Inventory/views.py", line 588, in post
+    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+               ^^^^^^^^^^^^
+NameError: name 'HttpResponse' is not defined. Did you mean: 'JsonResponse'?
+"POST /material-heatmap/ HTTP/1.1" 500 89754

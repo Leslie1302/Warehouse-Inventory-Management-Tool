@@ -9,7 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.urls import reverse_lazy
 from Inventory_management_system.settings import LOW_QUANTITY
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
@@ -22,7 +22,12 @@ import pandas as pd
 from django.shortcuts import render, redirect
 from .forms import ExcelUploadForm, MaterialReceiptFormSet
 import json
-
+import seaborn as sns
+import matplotlib.pyplot as plt
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import numpy as np
 
 class Index(TemplateView):
     template_name = 'Inventory/index.html'
@@ -226,7 +231,6 @@ class UpdateMaterialStatusView(View):
                     order.save()
                 elif new_status in ["Partial", "Full"]:
                     if is_partial and (partial_quantity <= 0 or partial_quantity > order.remaining_quantity):
-                        print(f"Invalid partial quantity: {partial_quantity}, Remaining: {order.remaining_quantity}")
                         return JsonResponse({"success": False, "error": "Invalid partial quantity."}, status=400)
 
                     if inventory_item.quantity is None:
@@ -244,13 +248,9 @@ class UpdateMaterialStatusView(View):
                                 "success": False,
                                 "error": "The inventory for this material is less than the order quantity"
                             }, status=400)
-                        print(f"Before Release: Inventory Quantity: {inventory_item.quantity}")
                         inventory_item.quantity -= quantity_to_process
-                        print(f"After Release: Inventory Quantity: {inventory_item.quantity}")
                     elif order.request_type == "Receipt":
-                        print(f"Before Receipt: Inventory Quantity: {inventory_item.quantity}")
                         inventory_item.quantity += quantity_to_process
-                        print(f"After Receipt: Inventory Quantity: {inventory_item.quantity}")
 
                     inventory_item.save()
                     order.processed_quantity += quantity_to_process
@@ -275,7 +275,6 @@ class UpdateMaterialStatusView(View):
         except Exception as e:
             print(f"Unexpected error: {str(e)}")  # Log the full error for debugging
             return JsonResponse({"success": False, "error": f"Server error: {str(e)}"}, status=500)
-
 
 
 class ProfileView(LoginRequiredMixin, View):
@@ -493,3 +492,138 @@ class MaterialReceiptView(LoginRequiredMixin, View):
             'items': items,
             'inventory_items': json.dumps(list(items.values('name', 'category__name', 'unit__name', 'code')))
         })
+
+
+class MaterialHeatmapView(LoginRequiredMixin, View):
+    template_name = 'Inventory/material_heatmap.html'
+
+    def get(self, request):
+        if request.user.is_superuser:
+            orders = MaterialOrder.objects.all()
+            items = InventoryItem.objects.all()
+        else:
+            orders = MaterialOrder.objects.filter(group__in=request.user.groups.all())
+            items = InventoryItem.objects.filter(group__in=request.user.groups.all())
+
+        period = request.GET.get('period', 'month')
+        report_type = request.GET.get('type', 'release')
+
+        if report_type in ['release', 'receipt']:
+            orders = orders.filter(request_type=report_type.capitalize())
+            df = pd.DataFrame.from_records(orders.values('code', 'processed_quantity', 'date_requested'))  # Use 'code' instead of 'name'
+            if df.empty:
+                df = pd.DataFrame(columns=['code', 'processed_quantity', 'date_requested'])
+            else:
+                df['date'] = pd.to_datetime(df['date_requested'])
+                if period == 'day':
+                    df['period'] = df['date'].dt.date
+                elif period == 'week':
+                    df['period'] = df['date'].dt.to_period('W').apply(lambda r: r.start_time.date())
+                else:  # month
+                    df['period'] = df['date'].dt.to_period('M').apply(lambda r: r.start_time.date())
+                pivot = pd.pivot_table(df, values='processed_quantity', index='code', columns='period', aggfunc='sum', fill_value=0)  # Use 'code' for index
+        else:
+            df = pd.DataFrame.from_records(items.values('code', 'quantity'))  # Use 'code' instead of 'name'
+            pivot = df.set_index('code').T  # Use 'code' for index
+
+        # Set up a professional, modern style heatmap
+        plt.figure(figsize=(15, 10))  # Larger figure for better visibility
+        sns.set_style("whitegrid")  # Clean, modern background
+        heatmap = sns.heatmap(
+            pivot,
+            cmap="Blues",  # Vibrant blue palette matching your reference (similar to teal/navy)
+            annot=True,  # Show values
+            fmt='.0f',  # Integer format
+            cbar_kws={'label': 'Quantity', 'shrink': 0.8, 'pad': 0.02, 'orientation': 'vertical'},
+            linewidths=0.5,  # Thin lines for grid
+            annot_kws={'size': 10, 'weight': 'bold'},  # Bold, readable annotations
+            square=True,  # Square cells for clarity
+            vmin=0,  # Minimum value for color scale
+            vmax=pivot.max().max() * 1.1  # Scale max slightly higher for contrast
+        )
+        plt.title("Material Movement Heatmap", fontsize=16, pad=20, fontweight='bold', color='#2c3e50')  # Navy title
+        plt.xlabel("Time Period", fontsize=12, color='#2c3e50')
+        plt.ylabel("Material Code", fontsize=12, color='#2c3e50')  # Updated to "Material Code"
+        
+        # Rotate x-axis labels for readability
+        plt.xticks(rotation=45, ha='right', fontsize=10)
+        plt.yticks(fontsize=10)
+
+        # Adjust layout for a clean look
+        plt.tight_layout()
+
+        # Save to buffer
+        buffer = BytesIO()
+        plt.savefig(buffer, format='png', bbox_inches='tight', dpi=300)  # Higher DPI for quality
+        plt.close()
+        buffer.seek(0)
+        heatmap_image = buffer.getvalue()
+
+        context = {
+            'heatmap_image': heatmap_image.hex(),
+            'report_type': report_type,
+            'period': period,
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        if request.user.is_superuser:
+            orders = MaterialOrder.objects.all()
+            items = InventoryItem.objects.all()
+        else:
+            orders = MaterialOrder.objects.filter(group__in=request.user.groups.all())
+            items = InventoryItem.objects.filter(group__in=request.user.groups.all())
+
+        period = request.POST.get('period', 'month')
+        report_type = request.POST.get('type', 'release')
+
+        if report_type in ['release', 'receipt']:
+            orders = orders.filter(request_type=report_type.capitalize())
+            df = pd.DataFrame.from_records(orders.values('code', 'processed_quantity', 'date_requested'))
+            if df.empty:
+                df = pd.DataFrame(columns=['code', 'processed_quantity', 'date_requested'])
+            else:
+                df['date'] = pd.to_datetime(df['date_requested'])
+                if period == 'day':
+                    df['period'] = df['date'].dt.date
+                elif period == 'week':
+                    df['period'] = df['date'].dt.to_period('W').apply(lambda r: r.start_time.date())
+                else:  # month
+                    df['period'] = df['date'].dt.to_period('M').apply(lambda r: r.start_time.date())
+                pivot = pd.pivot_table(df, values='processed_quantity', index='code', columns='period', aggfunc='sum', fill_value=0)
+        else:
+            df = pd.DataFrame.from_records(items.values('code', 'quantity'))
+            pivot = df.set_index('code').T
+
+        # Set up a professional, modern style heatmap for PDF
+        plt.figure(figsize=(15, 10))
+        sns.set_style("whitegrid")
+        heatmap = sns.heatmap(
+            pivot,
+            cmap="Blues",
+            annot=True,
+            fmt='.0f',
+            cbar_kws={'label': 'Quantity', 'shrink': 0.8, 'pad': 0.02, 'orientation': 'vertical'},
+            linewidths=0.5,
+            annot_kws={'size': 10, 'weight': 'bold'},
+            square=True,
+            vmin=0,
+            vmax=pivot.max().max() * 1.1
+        )
+        plt.title(f"{report_type.capitalize()} Heatmap ({period.capitalize()})", fontsize=16, pad=20, fontweight='bold', color='#2c3e50')
+        plt.xlabel("Time Period", fontsize=12, color='#2c3e50')
+        plt.ylabel("Material Code", fontsize=12, color='#2c3e50')
+
+        plt.xticks(rotation=45, ha='right', fontsize=10)
+        plt.yticks(fontsize=10)
+        plt.tight_layout()
+
+        # Save to PDF buffer
+        buffer = BytesIO()
+        plt.savefig(buffer, format='pdf', bbox_inches='tight', dpi=300)
+        plt.close()
+        buffer.seek(0)
+
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{report_type}_heatmap_{period}.pdf"'
+        return response
