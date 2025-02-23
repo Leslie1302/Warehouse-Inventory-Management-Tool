@@ -195,37 +195,66 @@ class MaterialOrdersView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
 
 class UpdateMaterialStatusView(View):
     def post(self, request, order_id, new_status):
-        if new_status not in ["Pending", "Seen", "Completed"]:
+        if new_status not in ["Seen", "Partial", "Full"]:
             return JsonResponse({"success": False, "error": "Invalid status."}, status=400)
 
         try:
             with transaction.atomic():
                 order = get_object_or_404(MaterialOrder, id=order_id)
-                if order.status == "Pending" and new_status == "Seen":
+                data = json.loads(request.body) if request.body else {}
+                is_partial = new_status == "Partial" or data.get('is_partial', False)
+                partial_quantity = int(data.get('partial_quantity', 0)) if is_partial else order.remaining_quantity
+
+                inventory_item = InventoryItem.objects.filter(name=order.name).first()
+                if not inventory_item:
+                    return JsonResponse({"success": False, "error": "No matching inventory item found for this order."}, status=400)
+
+                if new_status == "Seen":
                     order.status = "Seen"
                     order.save()
-                elif order.status == "Seen" and new_status == "Completed":
-                    inventory_item = InventoryItem.objects.filter(name=order.name).first()
-                    if inventory_item:
-                        if order.request_type == "Release":
-                            if inventory_item.quantity >= order.quantity:
-                                inventory_item.quantity -= order.quantity
-                                inventory_item.save()
-                            else:
-                                return JsonResponse({"success": False, "error": "Not enough stock available."}, status=400)
-                        elif order.request_type == "Receipt":
-                            inventory_item.quantity += order.quantity  # Add for receipt
-                            inventory_item.save()
-                        order.status = "Completed"
-                        order.save()
+                elif new_status in ["Partial", "Full"]:
+                    if is_partial:
+                        if partial_quantity <= 0 or partial_quantity > order.remaining_quantity:
+                            return JsonResponse({"success": False, "error": "Invalid partial quantity."}, status=400)
+                        quantity_to_process = partial_quantity
+                    else:  # Full
+                        quantity_to_process = order.remaining_quantity
+
+                    if order.request_type == "Release":
+                        if inventory_item.quantity is None or inventory_item.quantity < quantity_to_process:
+                            return JsonResponse({
+                                "success": False,
+                                "error": "The inventory for this material is less than the order quantity"
+                            }, status=400)
+                        inventory_item.quantity -= quantity_to_process
+                    elif order.request_type == "Receipt":
+                        if inventory_item.quantity is None:
+                            inventory_item.quantity = 0  # Initialize if None
+                        inventory_item.quantity += quantity_to_process
+
+                    inventory_item.save()
+                    order.processed_quantity += quantity_to_process
+                    order.remaining_quantity -= quantity_to_process
+
+                    if order.remaining_quantity <= 0:
+                        order.status = "Completed"  # Fully processed
                     else:
-                        return JsonResponse({"success": False, "error": "Inventory item not found."}, status=400)
-                else:
-                    return JsonResponse({"success": False, "error": "Invalid status transition."}, status=400)
-            return JsonResponse({"success": True, "new_status": order.status})
+                        order.status = "Approved"  # Partially processed or reset after action
+                    order.save()
+
+                return JsonResponse({
+                    "success": True,
+                    "new_status": order.status,
+                    "processed_quantity": order.processed_quantity,
+                    "remaining_quantity": order.remaining_quantity
+                })
+        except json.JSONDecodeError:
+            return JsonResponse({"success": False, "error": "Invalid request data."}, status=400)
+        except ValueError as e:  # Handles invalid partial_quantity conversion
+            return JsonResponse({"success": False, "error": f"Invalid quantity value: {str(e)}"}, status=400)
         except Exception as e:
-            print("Error:", str(e))
-            return JsonResponse({"success": False, "error": str(e)}, status=500)
+            return JsonResponse({"success": False, "error": f"Server error: {str(e)}"}, status=500)
+
 
 class ProfileView(LoginRequiredMixin, View):
     template_name = 'Inventory/profile.html'

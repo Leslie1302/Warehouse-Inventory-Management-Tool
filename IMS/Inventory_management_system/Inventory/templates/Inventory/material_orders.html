@@ -25,6 +25,8 @@
                     <th scope="col">User</th>
                     <th scope="col">Material</th>
                     <th scope="col">Quantity</th>
+                    <th scope="col">Processed</th>
+                    <th scope="col">Remaining</th>
                     <th scope="col">Notification Type</th>
                     <th scope="col">Status</th>
                     <th scope="col">Date Requested</th>
@@ -37,12 +39,16 @@
                         <td>{{ order.user.username }}</td>
                         <td>{{ order.name }}</td>
                         <td>{{ order.quantity }}</td>
+                        <td id="processed-{{ order.id }}">{{ order.processed_quantity }}</td>
+                        <td id="remaining-{{ order.id }}">{{ order.remaining_quantity }}</td>
                         <td>{{ order.request_type }}</td>
                         <td id="status-{{ order.id }}">
                             {% if order.status == "Pending" %}
                                 ⏳ Pending
                             {% elif order.status == "Seen" %}
                                 👀 Seen
+                            {% elif order.status == "Approved" %}
+                                🔄 Approved
                             {% elif order.status == "Completed" %}
                                 ✅ Completed
                             {% else %}
@@ -51,21 +57,38 @@
                         </td>
                         <td>{{ order.date_requested|date:"Y-m-d H:i" }}</td>
                         <td>
-                            <button id="seen-btn-{{ order.id }}" class="btn btn-warning btn-sm"
-                                    onclick="updateStatus({{ order.id }}, 'Seen')"
-                                    {% if order.status != 'Pending' %}disabled{% endif %}>
-                                👀 Mark as Seen
-                            </button>
-                            <button id="completed-btn-{{ order.id }}" class="btn btn-success btn-sm"
-                                    onclick="updateStatus({{ order.id }}, 'Completed')"
-                                    {% if order.status != 'Seen' %}disabled{% endif %}>
-                                ✅ Mark as Completed
-                            </button>
+                            <div class="btn-group-vertical">
+                                <button id="seen-btn-{{ order.id }}" class="btn btn-warning btn-sm"
+                                        onclick="updateStatus({{ order.id }}, 'Seen')"
+                                        {% if order.status != 'Pending' and order.status != 'Approved' %}disabled{% endif %}>
+                                    👀 Seen
+                                </button>
+                                <button id="partial-btn-{{ order.id }}" class="btn btn-info btn-sm mt-1"
+                                        onclick="togglePartialInput({{ order.id }})"
+                                        {% if order.status != 'Seen' or order.remaining_quantity <= 0 %}disabled{% endif %}>
+                                    📏 Partial
+                                </button>
+                                <button id="full-btn-{{ order.id }}" class="btn btn-success btn-sm mt-1"
+                                        onclick="updateStatus({{ order.id }}, 'Full')"
+                                        {% if order.status != 'Seen' or order.remaining_quantity <= 0 %}disabled{% endif %}>
+                                    ✅ Full
+                                </button>
+                            </div>
+                            <div id="partial-form-{{ order.id }}" class="mt-2 d-none">
+                                <input type="number" id="partial-input-{{ order.id }}" class="form-control d-inline-block"
+                                       min="1" max="{{ order.remaining_quantity }}" value="1"
+                                       style="width: 100px;" placeholder="Qty">
+                                <button id="submit-partial-{{ order.id }}" class="btn btn-primary btn-sm mt-1"
+                                        onclick="updateStatus({{ order.id }}, 'Partial', document.getElementById('partial-input-{{ order.id }}').value)"
+                                        {% if order.remaining_quantity <= 0 %}disabled{% endif %}>
+                                    ✔️ Submit
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="7" class="text-muted text-center">No material requests found.</td>
+                        <td colspan="9" class="text-muted text-center">No material requests found.</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -93,32 +116,72 @@ function getCSRFToken() {
     return cookieValue || document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 }
 
-function updateStatus(orderId, newStatus) {
+function togglePartialInput(orderId) {
+    const partialForm = document.getElementById(`partial-form-${orderId}`);
+    partialForm.classList.toggle('d-none');
+}
+
+function updateStatus(orderId, newStatus, partialQuantity = null) {
+    if (newStatus === 'Partial' && (!partialQuantity || partialQuantity <= 0)) {
+        alert("Please enter a valid partial quantity.");
+        return;
+    }
+
+    const payload = newStatus === 'Partial' ? { is_partial: true, partial_quantity: parseInt(partialQuantity) } : { is_partial: false };
     fetch(`/update_material_status/${orderId}/${newStatus}/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCSRFToken(),
             'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(payload)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || `HTTP error! status: ${response.status}`); });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            document.getElementById(`status-${orderId}`).innerText = 
-                newStatus === 'Seen' ? '👀 Seen' : '✅ Completed';
-            if (newStatus === "Seen") {
-                document.getElementById(`completed-btn-${orderId}`).disabled = false;
-                document.getElementById(`seen-btn-${orderId}`).disabled = true;
-            } else if (newStatus === "Completed") {
-                document.getElementById(`seen-btn-${orderId}`).disabled = true;
-                document.getElementById(`completed-btn-${orderId}`).disabled = true;
+            const statusCell = document.getElementById(`status-${orderId}`);
+            statusCell.innerText = data.new_status === 'Approved' ? '🔄 Approved' : 
+                                  data.new_status === 'Seen' ? '👀 Seen' : '✅ Completed';
+            document.getElementById(`processed-${orderId}`).innerText = data.processed_quantity;
+            document.getElementById(`remaining-${orderId}`).innerText = data.remaining_quantity;
+
+            const seenBtn = document.getElementById(`seen-btn-${orderId}`);
+            const partialBtn = document.getElementById(`partial-btn-${orderId}`);
+            const fullBtn = document.getElementById(`full-btn-${orderId}`);
+            const partialForm = document.getElementById(`partial-form-${orderId}`);
+            const submitPartialBtn = document.getElementById(`submit-partial-${orderId}`);
+
+            if (data.new_status === "Seen") {
+                seenBtn.disabled = true;
+                partialBtn.disabled = false;
+                fullBtn.disabled = false;
+            } else if (data.new_status === "Approved") {
+                seenBtn.disabled = false;
+                partialBtn.disabled = true;
+                fullBtn.disabled = true;
+                partialForm.classList.add('d-none');
+            } else if (data.new_status === "Completed") {
+                seenBtn.disabled = true;
+                partialBtn.disabled = true;
+                fullBtn.disabled = true;
+                partialForm.classList.add('d-none');
+                submitPartialBtn.disabled = true;
             }
-            console.log(`Order ${orderId} updated to ${newStatus}`);
+            console.log(`Order ${orderId} updated to ${data.new_status}, Remaining: ${data.remaining_quantity}`);
         } else {
+            console.log(data.error); // Specific error message from server
             alert(`❌ Error: ${data.error}`);
         }
     })
-    .catch(error => console.error('Fetch Error:', error));
+    .catch(error => {
+        console.log(error.message); // Display specific error in console
+        alert(`❌ Error: ${error.message}`);
+    });
 }
 </script>
 

@@ -43,7 +43,7 @@ def get_default_unit():
 
 class MaterialOrder(models.Model):
     name = models.CharField(max_length=200)
-    quantity = models.IntegerField()
+    quantity = models.IntegerField()  # Total requested/received quantity
     category = models.ForeignKey('Category', on_delete=models.SET_NULL, blank=True, null=True)
     code = models.CharField(max_length=200, blank=False, default="Enter code")
     unit = models.ForeignKey(Unit, on_delete=models.CASCADE)
@@ -57,9 +57,11 @@ class MaterialOrder(models.Model):
     )
     request_type = models.CharField(
         max_length=20,
-        choices=[('release', 'Release Request'), ('Receipt', 'Receipt Request')],
+        choices=[('Release', 'Release Request'), ('Receipt', 'Receipt Request')],
         default='Release'
     )
+    processed_quantity = models.IntegerField(default=0)  # Quantity processed so far
+    remaining_quantity = models.IntegerField(null=True, blank=True)  # Quantity left to process
 
     class Meta:
         verbose_name_plural = 'orders'
@@ -67,6 +69,12 @@ class MaterialOrder(models.Model):
     def __str__(self):
         return f"{self.name} - {self.quantity} ({self.request_type})"
 
+    def save(self, *args, **kwargs):
+        if self.remaining_quantity is None:  # Initialize on first save
+            self.remaining_quantity = self.quantity
+        super().save(*args, **kwargs)
+
+        
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
