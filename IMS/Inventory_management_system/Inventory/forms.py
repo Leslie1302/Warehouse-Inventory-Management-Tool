@@ -22,29 +22,30 @@ InventoryItemFormSet = formset_factory(InventoryItemForm, extra=1, can_delete=Tr
 
 
 class MaterialOrderForm(forms.ModelForm):
+    name = forms.ModelChoiceField(
+        queryset=InventoryItem.objects.all(),
+        to_field_name="name",
+        empty_label="-- Choose Material --",
+        widget=forms.Select(attrs={'class': 'form-control material-select'})
+    )
+
     class Meta:
         model = MaterialOrder
-        fields = ['name', 'quantity', 'category', 'code', 'unit']
+        fields = ['name', 'quantity']  # Remove category, unit, and code from user input
         widgets = {
-            'name': forms.Select(attrs={'class': 'form-control material-select'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
-            'category': forms.Select(attrs={'class': 'form-control'}),
-            'code': forms.TextInput(attrs={'class': 'form-control material-code', 'readonly': 'readonly'}),
-            'unit': forms.Select(attrs={'class': 'form-control'}),
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        self.fields['name'].queryset = InventoryItem.objects.all()
-        self.fields['name'].empty_label = "-- Choose Material --"
+        if user:
+            if not user.is_superuser:
+                self.fields['name'].queryset = InventoryItem.objects.filter(group__in=user.groups.all())
+            else:
+                self.fields['name'].queryset = InventoryItem.objects.all()
 
-# Create a formset for multiple requests
-MaterialOrderFormSet = modelformset_factory(
-    MaterialOrder, form=MaterialOrderForm, extra=1, can_delete=True
-)
-
-
-
+MaterialOrderFormSet = formset_factory(MaterialOrderForm, extra=1, can_delete=True)
 
 
 class UserUpdateForm(forms.ModelForm):

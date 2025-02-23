@@ -21,7 +21,7 @@ from django.db import transaction
 import pandas as pd
 from django.shortcuts import render, redirect
 from .forms import ExcelUploadForm
-
+import json
 
 
 class Index(TemplateView):
@@ -131,39 +131,71 @@ class DeleteItem(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
 
 MaterialOrderFormSet = formset_factory(MaterialOrderForm, extra=1)
 
-class RequestMaterialView(LoginRequiredMixin, FormView):
+MaterialOrderFormSet = formset_factory(MaterialOrderForm, extra=1)
+
+class RequestMaterialView(LoginRequiredMixin, View):
     template_name = 'Inventory/request_material.html'
-    form_class = MaterialOrderFormSet
-    success_url = reverse_lazy('dashboard')
 
-    def form_valid(self, formset):
-        # Log form data to debug
-        for form in formset:
-            print("Form Data:", form.cleaned_data)  # ✅ See what data is being processed
-            if form.cleaned_data.get('name') and form.cleaned_data.get('code'):
-                material_order = form.save(commit=False)
-                material_order.user = self.request.user
-                material_order.group = self.request.user.groups.first()
-                material_order.save()
-        messages.success(self.request, "Material request submitted successfully!")
-        return super().form_valid(formset)
+    def get(self, request):
+        if request.user.is_superuser:
+            items = InventoryItem.objects.all()
+        else:
+            items = InventoryItem.objects.filter(group__in=request.user.groups.all())
 
-    def form_invalid(self, formset):
-        print("Form Errors:", formset.errors)  # ✅ Log errors
-        messages.error(self.request, "There was an error in your submission.")
-        return self.render_to_response(self.get_context_data(formset=formset))
+        formset = MaterialOrderFormSet(form_kwargs={'user': request.user})
+        inventory_items = list(items.values('name', 'category__name', 'unit__name', 'code'))
 
+        return render(request, self.template_name, {
+            'formset': formset,
+            'items': items,
+            'inventory_items': json.dumps(inventory_items)
+        })
+
+    def post(self, request):
+        formset = MaterialOrderFormSet(request.POST, form_kwargs={'user': request.user})
+        if formset.is_valid():
+            for form in formset:
+                if form.cleaned_data:
+                    material_order = form.save(commit=False)
+                    selected_item = InventoryItem.objects.filter(name=form.cleaned_data['name']).first()
+                    if selected_item:
+                        material_order.category = selected_item.category  # ForeignKey object
+                        material_order.code = selected_item.code  # String
+                        material_order.unit = selected_item.unit  # ForeignKey object
+                    else:
+                        # Fallback if no matching InventoryItem (shouldn’t happen with dropdown)
+                        material_order.category = None
+                        material_order.code = "Unknown"
+                        material_order.unit = Unit.objects.first()  # Default unit
+                    material_order.user = request.user
+                    material_order.group = request.user.groups.first() if request.user.groups.exists() else None
+                    material_order.save()
+            messages.success(request, "Material requests submitted successfully!")
+            return redirect('material_orders')
+        else:
+            print("Formset errors:", formset.errors)
+            messages.error(request, "There was an error with your submission.")
+        
+        if request.user.is_superuser:
+            items = InventoryItem.objects.all()
+        else:
+            items = InventoryItem.objects.filter(group__in=request.user.groups.all())
+        return render(request, self.template_name, {
+            'formset': formset,
+            'items': items,
+            'inventory_items': json.dumps(list(items.values('name', 'category__name', 'unit__name', 'code')))
+        })
+
+        
 class MaterialOrdersView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'Inventory/material_orders.html'
     context_object_name = 'orders'
     permission_required = 'Inventory.view_materialorder'
 
     def get_queryset(self):
-        # Show all material orders for the user's groups, not just their own
         if self.request.user.is_superuser:
-            return MaterialOrder.objects.all()
+            return MaterialOrder.objects.all().order_by('-date_requested')
         return MaterialOrder.objects.filter(group__in=self.request.user.groups.all()).order_by('-date_requested')
-
 class UpdateMaterialStatusView(View):
     def post(self, request, order_id, new_status):
         print("🟢 View is executing!")

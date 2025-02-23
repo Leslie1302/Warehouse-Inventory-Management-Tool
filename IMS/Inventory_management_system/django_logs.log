@@ -6371,3 +6371,62 @@ Traceback (most recent call last):
     )
 django.template.exceptions.TemplateSyntaxError: 'block' tag with name 'content' appears more than once
 "GET /request-material/ HTTP/1.1" 500 204034
+Forbidden (CSRF token missing.): /update_material_status/1/Seen/
+Forbidden (CSRF token missing.): /update_material_status/1/Seen/
+"POST /update_material_status/1/Seen/ HTTP/1.1" 403 2491
+Forbidden (CSRF token missing.): /update_material_status/1/Seen/
+Forbidden (CSRF token missing.): /update_material_status/1/Seen/
+"POST /update_material_status/1/Seen/ HTTP/1.1" 403 2491
+Forbidden (CSRF token missing.): /update_material_status/1/completed/
+Forbidden (CSRF token missing.): /update_material_status/1/completed/
+"POST /update_material_status/1/completed/ HTTP/1.1" 403 2491
+Forbidden (CSRF token missing.): /update_material_status/1/Completed/
+Forbidden (CSRF token missing.): /update_material_status/1/Completed/
+"POST /update_material_status/1/Completed/ HTTP/1.1" 403 2491
+Forbidden (CSRF token missing.): /update_material_status/1/Complete/
+Forbidden (CSRF token missing.): /update_material_status/1/Complete/
+"POST /update_material_status/1/Complete/ HTTP/1.1" 403 2491
+Forbidden (CSRF token missing.): /
+Forbidden (CSRF token missing.): /
+"POST / HTTP/1.1" 403 2491
+Internal Server Error: /request-material/
+Traceback (most recent call last):
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/contrib/auth/mixins.py", line 73, in dispatch
+    return super().dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 143, in dispatch
+    return handler(request, *args, **kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/Inventory_management_system/Inventory/views.py", line 143, in get
+    'inventory_items': json.dumps(inventory_items)  # Convert to JSON for JavaScript autofill
+                       ^^^^
+NameError: name 'json' is not defined. Did you forget to import 'json'?
+"GET /request-material/ HTTP/1.1" 500 93241
+Internal Server Error: /request-material/
+Traceback (most recent call last):
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/contrib/auth/mixins.py", line 73, in dispatch
+    return super().dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/env/lib/python3.13/site-packages/django/views/generic/base.py", line 143, in dispatch
+    return handler(request, *args, **kwargs)
+  File "/home/lesliena/Documents/GitHub/Warehouse-Inventory-Management-Tool/IMS/Inventory_management_system/Inventory/views.py", line 138, in get
+    formset = MaterialOrderFormSet(queryset=MaterialOrder.objects.none())  # Empty formset
+TypeError: BaseFormSet.__init__() got an unexpected keyword argument 'queryset'
+"GET /request-material/ HTTP/1.1" 500 86058
+Bad Request: /update_material_status/7/Completed/
+"POST /update_material_status/7/Completed/ HTTP/1.1" 400 58
+Bad Request: /update_material_status/8/Completed/
+"POST /update_material_status/8/Completed/ HTTP/1.1" 400 58
