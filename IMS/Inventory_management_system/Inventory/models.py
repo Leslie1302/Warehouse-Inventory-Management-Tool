@@ -61,7 +61,7 @@ class MaterialOrder(models.Model):
         default='Release'
     )
     processed_quantity = models.IntegerField(default=0)  # Quantity processed so far
-    remaining_quantity = models.IntegerField(null=True, blank=True)  # Quantity left to process
+    remaining_quantity = models.IntegerField(default=0)  # Quantity left to process, default to 0
 
     class Meta:
         verbose_name_plural = 'orders'
@@ -70,11 +70,11 @@ class MaterialOrder(models.Model):
         return f"{self.name} - {self.quantity} ({self.request_type})"
 
     def save(self, *args, **kwargs):
-        if self.remaining_quantity is None:  # Initialize on first save
+        if self.pk is None:  # Only set on creation
             self.remaining_quantity = self.quantity
         super().save(*args, **kwargs)
 
-        
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)

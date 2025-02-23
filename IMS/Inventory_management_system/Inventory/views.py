@@ -203,34 +203,54 @@ class UpdateMaterialStatusView(View):
                 order = get_object_or_404(MaterialOrder, id=order_id)
                 data = json.loads(request.body) if request.body else {}
                 is_partial = new_status == "Partial" or data.get('is_partial', False)
-                partial_quantity = int(data.get('partial_quantity', 0)) if is_partial else order.remaining_quantity
+                partial_quantity = int(data.get('partial_quantity', 0)) if is_partial else 0
+                quantity_to_process = partial_quantity if is_partial else order.remaining_quantity
+
+                # Ensure remaining_quantity is an integer
+                if order.remaining_quantity is None:
+                    print(f"Warning: remaining_quantity was None for order {order.id}, setting to {order.quantity - order.processed_quantity}")
+                    order.remaining_quantity = order.quantity - order.processed_quantity
+                    order.save()
 
                 inventory_item = InventoryItem.objects.filter(name=order.name).first()
                 if not inventory_item:
                     return JsonResponse({"success": False, "error": "No matching inventory item found for this order."}, status=400)
 
+                # Debugging: Log all relevant details
+                print(f"Order ID: {order_id}, Item: {inventory_item.name}, Inventory Quantity: {inventory_item.quantity}, "
+                      f"Request Type: {order.request_type}, To Process: {quantity_to_process}, "
+                      f"Processed: {order.processed_quantity}, Remaining: {order.remaining_quantity}")
+
                 if new_status == "Seen":
                     order.status = "Seen"
                     order.save()
                 elif new_status in ["Partial", "Full"]:
-                    if is_partial:
-                        if partial_quantity <= 0 or partial_quantity > order.remaining_quantity:
-                            return JsonResponse({"success": False, "error": "Invalid partial quantity."}, status=400)
-                        quantity_to_process = partial_quantity
-                    else:  # Full
-                        quantity_to_process = order.remaining_quantity
+                    if is_partial and (partial_quantity <= 0 or partial_quantity > order.remaining_quantity):
+                        print(f"Invalid partial quantity: {partial_quantity}, Remaining: {order.remaining_quantity}")
+                        return JsonResponse({"success": False, "error": "Invalid partial quantity."}, status=400)
+
+                    if inventory_item.quantity is None:
+                        if order.request_type == "Receipt":
+                            inventory_item.quantity = 0  # Initialize for receipts
+                        else:  # Release
+                            return JsonResponse({
+                                "success": False,
+                                "error": "Inventory quantity is not set for this item."
+                            }, status=400)
 
                     if order.request_type == "Release":
-                        if inventory_item.quantity is None or inventory_item.quantity < quantity_to_process:
+                        if inventory_item.quantity < quantity_to_process:
                             return JsonResponse({
                                 "success": False,
                                 "error": "The inventory for this material is less than the order quantity"
                             }, status=400)
+                        print(f"Before Release: Inventory Quantity: {inventory_item.quantity}")
                         inventory_item.quantity -= quantity_to_process
+                        print(f"After Release: Inventory Quantity: {inventory_item.quantity}")
                     elif order.request_type == "Receipt":
-                        if inventory_item.quantity is None:
-                            inventory_item.quantity = 0  # Initialize if None
+                        print(f"Before Receipt: Inventory Quantity: {inventory_item.quantity}")
                         inventory_item.quantity += quantity_to_process
+                        print(f"After Receipt: Inventory Quantity: {inventory_item.quantity}")
 
                     inventory_item.save()
                     order.processed_quantity += quantity_to_process
@@ -253,7 +273,9 @@ class UpdateMaterialStatusView(View):
         except ValueError as e:  # Handles invalid partial_quantity conversion
             return JsonResponse({"success": False, "error": f"Invalid quantity value: {str(e)}"}, status=400)
         except Exception as e:
+            print(f"Unexpected error: {str(e)}")  # Log the full error for debugging
             return JsonResponse({"success": False, "error": f"Server error: {str(e)}"}, status=500)
+
 
 
 class ProfileView(LoginRequiredMixin, View):

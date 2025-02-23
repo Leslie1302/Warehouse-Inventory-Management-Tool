@@ -6568,3 +6568,15 @@ Internal Server Error: /update_material_status/8/Full/
 "POST /update_material_status/8/Full/ HTTP/1.1" 500 104
 Internal Server Error: /update_material_status/7/Full/
 "POST /update_material_status/7/Full/ HTTP/1.1" 500 104
+Internal Server Error: /update_material_status/16/Seen/
+"POST /update_material_status/16/Seen/ HTTP/1.1" 500 135
+Internal Server Error: /update_material_status/16/Seen/
+"POST /update_material_status/16/Seen/ HTTP/1.1" 500 135
+Internal Server Error: /update_material_status/8/Partial/
+"POST /update_material_status/8/Partial/ HTTP/1.1" 500 104
+Internal Server Error: /update_material_status/8/Full/
+"POST /update_material_status/8/Full/ HTTP/1.1" 500 104
+Bad Request: /update_material_status/8/Partial/
+"POST /update_material_status/8/Partial/ HTTP/1.1" 400 56
+Bad Request: /update_material_status/8/Partial/
+"POST /update_material_status/8/Partial/ HTTP/1.1" 400 56
