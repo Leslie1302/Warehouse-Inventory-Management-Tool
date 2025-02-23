@@ -3,3 +3,5 @@ crispy-bootstrap5
 gunicorn
 whitenoise
 Pillow
+pandas 
+openpyxl

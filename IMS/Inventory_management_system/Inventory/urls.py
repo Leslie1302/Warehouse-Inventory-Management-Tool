@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     Index, SignUpView, SignInView, CustomLogoutView, Dashboard, AddItem, 
     EditItem, DeleteItem, RequestMaterialView, MaterialOrdersView, 
-    UpdateMaterialStatusView, ProfileView
+    UpdateMaterialStatusView, ProfileView, UploadInventoryView, UploadCategoriesAndUnitsView, list_categories, list_units
 )
 
 urlpatterns = [
@@ -21,7 +21,11 @@ urlpatterns = [
     path('material-orders/', MaterialOrdersView.as_view(), name='material_orders'),
     
     # Parameterized routes
-     path('update_material_status/<int:order_id>/<str:new_status>/', UpdateMaterialStatusView.as_view(), name='update_material_status'),
+    path('update_material_status/<int:order_id>/<str:new_status>/', UpdateMaterialStatusView.as_view(), name='update_material_status'),
     path('delete-item/<int:pk>', DeleteItem.as_view(), name='delete-item'),
     path('edit-item/<int:pk>', EditItem.as_view(), name='edit-item'),
+    path('upload-inventory/', UploadInventoryView.as_view(), name='upload_inventory'),
+    path('list-categories/', list_categories, name='list_categories'),
+    path('list-units/', list_units, name='list_units'),
+    path('upload-categories-units/', UploadCategoriesAndUnitsView.as_view(), name='upload_categories_units'),
 ]

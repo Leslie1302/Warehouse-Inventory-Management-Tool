@@ -5,7 +5,7 @@ from .forms import UserRegistration, AuthenticationForm, InventoryItemForm, Inve
 from django.contrib.auth.views import LogoutView
 from django.contrib.auth.views import LogoutView as BaseLogoutView
 from .models import InventoryItem, Category, Unit, MaterialOrder, Profile
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from Inventory_management_system.settings import LOW_QUANTITY
 from django.contrib import messages
@@ -18,6 +18,11 @@ from django.forms import formset_factory
 import traceback
 from django.utils.decorators import method_decorator
 from django.db import transaction 
+import pandas as pd
+from django.shortcuts import render, redirect
+from .forms import ExcelUploadForm
+
+
 
 class Index(TemplateView):
     template_name = 'Inventory/index.html'
@@ -126,26 +131,27 @@ class DeleteItem(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
 
 MaterialOrderFormSet = formset_factory(MaterialOrderForm, extra=1)
 
-class RequestMaterialView(LoginRequiredMixin, PermissionRequiredMixin, View):
-    permission_required = 'Inventory.add_materialorder'
+class RequestMaterialView(LoginRequiredMixin, FormView):
     template_name = 'Inventory/request_material.html'
+    form_class = MaterialOrderFormSet
+    success_url = reverse_lazy('dashboard')
 
-    def get(self, request):
-        formset = MaterialOrderFormSet()
-        return render(request, self.template_name, {'formset': formset})
+    def form_valid(self, formset):
+        # Log form data to debug
+        for form in formset:
+            print("Form Data:", form.cleaned_data)  # ✅ See what data is being processed
+            if form.cleaned_data.get('name') and form.cleaned_data.get('code'):
+                material_order = form.save(commit=False)
+                material_order.user = self.request.user
+                material_order.group = self.request.user.groups.first()
+                material_order.save()
+        messages.success(self.request, "Material request submitted successfully!")
+        return super().form_valid(formset)
 
-    def post(self, request):
-        formset = MaterialOrderFormSet(request.POST)
-        if formset.is_valid():
-            for form in formset:
-                if form.cleaned_data:  # Only save forms with data
-                    material_order = form.save(commit=False)
-                    material_order.user = request.user
-                    material_order.group = request.user.groups.first() if request.user.groups.exists() else None
-                    material_order.save()
-            messages.success(request, 'Material requests submitted successfully!')
-            return redirect(reverse_lazy('dashboard'))
-        return render(request, self.template_name, {'formset': formset})
+    def form_invalid(self, formset):
+        print("Form Errors:", formset.errors)  # ✅ Log errors
+        messages.error(self.request, "There was an error in your submission.")
+        return self.render_to_response(self.get_context_data(formset=formset))
 
 class MaterialOrdersView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'Inventory/material_orders.html'
@@ -245,3 +251,128 @@ class ProfileView(LoginRequiredMixin, View):
             'profile': profile
         }
         return render(request, self.template_name, context)
+
+
+import pandas as pd
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views import View
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from Inventory.forms import ExcelUploadForm
+from Inventory.models import InventoryItem
+
+class UploadInventoryView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        return self.request.user.is_superuser  # ✅ Only allow admins
+
+    def get(self, request):
+        form = ExcelUploadForm()
+        return render(request, 'Inventory/upload_inventory.html', {'form': form})
+
+    def post(self, request):
+        if not self.request.user.is_superuser:
+            return JsonResponse({'error': 'Unauthorized access'}, status=403)
+
+        form = ExcelUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES['file']
+            try:
+                # Read Excel File
+                df = pd.read_excel(file, engine='openpyxl')
+
+                # Required columns in Excel
+                required_columns = ['name', 'quantity', 'category', 'code', 'unit']
+                if not all(col in df.columns for col in required_columns):
+                    messages.error(request, "Excel file is missing required columns.")
+                    return redirect('dashboard')
+
+                # 🔹 Load category & unit mappings from DB
+                category_mapping = {c.name: c.id for c in Category.objects.all()}
+                unit_mapping = {u.name: u.id for u in Unit.objects.all()}
+
+                for index, row in df.iterrows():
+                    # 🔄 Convert category & unit names to IDs
+                    category_id = category_mapping.get(row['category'])
+                    unit_id = unit_mapping.get(row['unit'])
+
+                    if not category_id or not unit_id:
+                        messages.error(request, f"Error: Invalid category or unit at row {index + 2}")
+                        continue
+
+                    item, created = InventoryItem.objects.get_or_create(
+                        code=row['code'],
+                        defaults={
+                            'name': row['name'],
+                            'quantity': row['quantity'],
+                            'category_id': category_id,
+                            'unit_id': unit_id,
+                            'user': request.user
+                        }
+                    )
+                    if not created:
+                        item.quantity += row['quantity']
+                        item.save()
+
+                messages.success(request, "Inventory updated successfully!")
+            except Exception as e:
+                messages.error(request, f"Error processing file: {e}")
+
+            return redirect('dashboard')
+
+        return render(request, 'Inventory/upload_inventory.html', {'form': form})
+
+class UploadCategoriesAndUnitsView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        return self.request.user.is_superuser  # ✅ Only allow admins
+
+    def get(self, request):
+        form = ExcelUploadForm()
+        return render(request, 'Inventory/upload_categories_units.html', {'form': form})
+
+    def post(self, request):
+        if not self.request.user.is_superuser:
+            return JsonResponse({'error': 'Unauthorized access'}, status=403)
+
+        form = ExcelUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES['file']
+            try:
+                # Read Excel File
+                df = pd.read_excel(file, engine='openpyxl')
+
+                # 🔥 Column Mapping: Convert Excel Columns to Match Model Fields
+                column_mapping = {
+                    'CATEGORY': 'category',
+                    'UNIT': 'unit'
+                }
+                df.rename(columns=column_mapping, inplace=True)
+
+                # ✅ Add Categories to Database
+                unique_categories = df['category'].dropna().unique()
+                for category_name in unique_categories:
+                    Category.objects.get_or_create(name=category_name)
+
+                # ✅ Add Units to Database
+                unique_units = df['unit'].dropna().unique()
+                for unit_name in unique_units:
+                    Unit.objects.get_or_create(name=unit_name)
+
+                messages.success(request, "Categories and Units uploaded successfully!")
+            except Exception as e:
+                messages.error(request, f"Error processing file: {e}")
+
+            return redirect('dashboard')
+
+        return render(request, 'Inventory/upload_categories_units.html', {'form': form})
+
+
+
+def list_categories(request):
+    categories = list(Category.objects.values('id', 'name'))
+    return JsonResponse({'categories': categories})
+
+
+def list_units(request):
+    units = list(Unit.objects.values('id', 'name'))
+    return JsonResponse({'units': units})
