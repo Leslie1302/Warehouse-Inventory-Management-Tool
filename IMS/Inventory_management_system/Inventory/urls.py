@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     Index, SignUpView, SignInView, CustomLogoutView, Dashboard, AddItem, 
     EditItem, DeleteItem, RequestMaterialView, MaterialOrdersView, 
-    UpdateMaterialStatusView, ProfileView, UploadInventoryView, UploadCategoriesAndUnitsView, list_categories, list_units
+    UpdateMaterialStatusView, ProfileView, UploadInventoryView, UploadCategoriesAndUnitsView, list_categories, list_units, MaterialReceiptView
 )
 
 urlpatterns = [
@@ -28,4 +28,5 @@ urlpatterns = [
     path('list-categories/', list_categories, name='list_categories'),
     path('list-units/', list_units, name='list_units'),
     path('upload-categories-units/', UploadCategoriesAndUnitsView.as_view(), name='upload_categories_units'),
+    path('receive-material/', MaterialReceiptView.as_view(), name='material_receipt'),
 ]

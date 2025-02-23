@@ -55,11 +55,17 @@ class MaterialOrder(models.Model):
         choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')],
         default='Pending'
     )
+    request_type = models.CharField(
+        max_length=20,
+        choices=[('release', 'Release Request'), ('Receipt', 'Receipt Request')],
+        default='Release'
+    )
 
     class Meta:
         verbose_name_plural = 'orders'
+
     def __str__(self):
-        return f"{self.name} - {self.quantity}"
+        return f"{self.name} - {self.quantity} ({self.request_type})"
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -73,3 +79,6 @@ class Profile(models.Model):
         if self.profile_picture:
             return self.profile_picture.url
         return '/static/images/default_profile.png'
+
+
+    

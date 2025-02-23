@@ -25,6 +25,7 @@
                     <th scope="col">User</th>
                     <th scope="col">Material</th>
                     <th scope="col">Quantity</th>
+                    <th scope="col">Notification Type</th>
                     <th scope="col">Status</th>
                     <th scope="col">Date Requested</th>
                     <th scope="col">Actions</th>
@@ -36,6 +37,7 @@
                         <td>{{ order.user.username }}</td>
                         <td>{{ order.name }}</td>
                         <td>{{ order.quantity }}</td>
+                        <td>{{ order.request_type }}</td>
                         <td id="status-{{ order.id }}">
                             {% if order.status == "Pending" %}
                                 ⏳ Pending
@@ -47,7 +49,7 @@
                                 🔄 {{ order.status }}
                             {% endif %}
                         </td>
-                        <td>{{ order.date_requested }}</td>
+                        <td>{{ order.date_requested|date:"Y-m-d H:i" }}</td>
                         <td>
                             <button id="seen-btn-{{ order.id }}" class="btn btn-warning btn-sm"
                                     onclick="updateStatus({{ order.id }}, 'Seen')"
@@ -63,7 +65,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="6" class="text-muted text-center">No material requests found.</td>
+                        <td colspan="7" class="text-muted text-center">No material requests found.</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -71,16 +73,12 @@
     </div>
 
     <div class="text-center mt-4">
-        <a href="{% url 'request_material' %}" class="btn btn-primary">
-            ➕ Request New Material
-        </a>
+        <a href="{% url 'request_material' %}" class="btn btn-primary">➕ Request New Material</a>
     </div>
 </div>
 
-<!-- ✅ CSRF Token Meta Tag -->
 <meta name="csrf-token" content="{{ csrf_token }}">
 
-<!-- JavaScript to Handle Status Updates -->
 <script>
 function getCSRFToken() {
     let cookieValue = null;
@@ -92,8 +90,9 @@ function getCSRFToken() {
             break;
         }
     }
-    return cookieValue;
+    return cookieValue || document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 }
+
 function updateStatus(orderId, newStatus) {
     fetch(`/update_material_status/${orderId}/${newStatus}/`, {
         method: 'POST',
@@ -107,23 +106,20 @@ function updateStatus(orderId, newStatus) {
         if (data.success) {
             document.getElementById(`status-${orderId}`).innerText = 
                 newStatus === 'Seen' ? '👀 Seen' : '✅ Completed';
-
-            // Enable/Disable buttons based on status
             if (newStatus === "Seen") {
                 document.getElementById(`completed-btn-${orderId}`).disabled = false;
+                document.getElementById(`seen-btn-${orderId}`).disabled = true;
             } else if (newStatus === "Completed") {
                 document.getElementById(`seen-btn-${orderId}`).disabled = true;
                 document.getElementById(`completed-btn-${orderId}`).disabled = true;
             }
+            console.log(`Order ${orderId} updated to ${newStatus}`);
         } else {
             alert(`❌ Error: ${data.error}`);
         }
     })
     .catch(error => console.error('Fetch Error:', error));
 }
-    </script>
-    
-    
-    
+</script>
 
 {% endblock %}

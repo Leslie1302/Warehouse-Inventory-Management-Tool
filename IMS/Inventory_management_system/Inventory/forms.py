@@ -31,7 +31,7 @@ class MaterialOrderForm(forms.ModelForm):
 
     class Meta:
         model = MaterialOrder
-        fields = ['name', 'quantity']  # Remove category, unit, and code from user input
+        fields = ['name', 'quantity']  # request_type set in view
         widgets = {
             'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
         }
@@ -45,8 +45,8 @@ class MaterialOrderForm(forms.ModelForm):
             else:
                 self.fields['name'].queryset = InventoryItem.objects.all()
 
+# Reuse for both requests and receipts
 MaterialOrderFormSet = formset_factory(MaterialOrderForm, extra=1, can_delete=True)
-
 
 class UserUpdateForm(forms.ModelForm):
     class Meta:
@@ -74,3 +74,30 @@ class PasswordChangeForm(forms.Form):
 
 class ExcelUploadForm(forms.Form):
     file = forms.FileField()
+
+
+class MaterialReceiptForm(forms.ModelForm):
+    name = forms.ModelChoiceField(
+        queryset=InventoryItem.objects.all(),
+        to_field_name="name",
+        empty_label="-- Choose Material --",
+        widget=forms.Select(attrs={'class': 'form-control material-select'})
+    )
+
+    class Meta:
+        model = InventoryItem  # Using InventoryItem directly since we’re updating it
+        fields = ['name', 'quantity']  # Only need name and quantity for input
+        widgets = {
+            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user:
+            if not user.is_superuser:
+                self.fields['name'].queryset = InventoryItem.objects.filter(group__in=user.groups.all())
+            else:
+                self.fields['name'].queryset = InventoryItem.objects.all()
+
+MaterialReceiptFormSet = formset_factory(MaterialReceiptForm, extra=1, can_delete=True)

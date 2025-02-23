@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.views.generic import TemplateView, View, CreateView, UpdateView, DeleteView, FormView, ListView
 from django.contrib.auth import authenticate, login, update_session_auth_hash
-from .forms import UserRegistration, AuthenticationForm, InventoryItemForm, InventoryItemFormSet, MaterialOrderForm, UserUpdateForm, ProfileUpdateForm, PasswordChangeForm
+from .forms import UserRegistration, AuthenticationForm, InventoryItemForm, InventoryItemFormSet, MaterialOrderForm, UserUpdateForm, ProfileUpdateForm, PasswordChangeForm, ExcelUploadForm
 from django.contrib.auth.views import LogoutView
 from django.contrib.auth.views import LogoutView as BaseLogoutView
 from .models import InventoryItem, Category, Unit, MaterialOrder, Profile
@@ -20,7 +20,7 @@ from django.utils.decorators import method_decorator
 from django.db import transaction 
 import pandas as pd
 from django.shortcuts import render, redirect
-from .forms import ExcelUploadForm
+from .forms import ExcelUploadForm, MaterialReceiptFormSet
 import json
 
 
@@ -159,16 +159,12 @@ class RequestMaterialView(LoginRequiredMixin, View):
                     material_order = form.save(commit=False)
                     selected_item = InventoryItem.objects.filter(name=form.cleaned_data['name']).first()
                     if selected_item:
-                        material_order.category = selected_item.category  # ForeignKey object
-                        material_order.code = selected_item.code  # String
-                        material_order.unit = selected_item.unit  # ForeignKey object
-                    else:
-                        # Fallback if no matching InventoryItem (shouldn’t happen with dropdown)
-                        material_order.category = None
-                        material_order.code = "Unknown"
-                        material_order.unit = Unit.objects.first()  # Default unit
+                        material_order.category = selected_item.category
+                        material_order.code = selected_item.code
+                        material_order.unit = selected_item.unit
                     material_order.user = request.user
                     material_order.group = request.user.groups.first() if request.user.groups.exists() else None
+                    material_order.request_type = 'Release'  # Set as Release Request
                     material_order.save()
             messages.success(request, "Material requests submitted successfully!")
             return redirect('material_orders')
@@ -186,7 +182,6 @@ class RequestMaterialView(LoginRequiredMixin, View):
             'inventory_items': json.dumps(list(items.values('name', 'category__name', 'unit__name', 'code')))
         })
 
-        
 class MaterialOrdersView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'Inventory/material_orders.html'
     context_object_name = 'orders'
@@ -196,42 +191,40 @@ class MaterialOrdersView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         if self.request.user.is_superuser:
             return MaterialOrder.objects.all().order_by('-date_requested')
         return MaterialOrder.objects.filter(group__in=self.request.user.groups.all()).order_by('-date_requested')
+
+
 class UpdateMaterialStatusView(View):
     def post(self, request, order_id, new_status):
-        print("🟢 View is executing!")
-
         if new_status not in ["Pending", "Seen", "Completed"]:
             return JsonResponse({"success": False, "error": "Invalid status."}, status=400)
 
         try:
-            with transaction.atomic():  # ✅ Prevent data corruption in case of errors
+            with transaction.atomic():
                 order = get_object_or_404(MaterialOrder, id=order_id)
-                print(f"🔍 Found order: {order}")
-
                 if order.status == "Pending" and new_status == "Seen":
                     order.status = "Seen"
                     order.save()
                 elif order.status == "Seen" and new_status == "Completed":
-                    # ✅ Deduct quantity from inventory when completed
                     inventory_item = InventoryItem.objects.filter(name=order.name).first()
                     if inventory_item:
-                        if inventory_item.quantity >= order.quantity:
-                            inventory_item.quantity -= order.quantity
+                        if order.request_type == "Release":
+                            if inventory_item.quantity >= order.quantity:
+                                inventory_item.quantity -= order.quantity
+                                inventory_item.save()
+                            else:
+                                return JsonResponse({"success": False, "error": "Not enough stock available."}, status=400)
+                        elif order.request_type == "Receipt":
+                            inventory_item.quantity += order.quantity  # Add for receipt
                             inventory_item.save()
-                            order.status = "Completed"
-                            order.save()
-                            print(f"✅ Updated inventory: {inventory_item.name} now has {inventory_item.quantity}")
-                        else:
-                            return JsonResponse({"success": False, "error": "Not enough stock available."}, status=400)
+                        order.status = "Completed"
+                        order.save()
                     else:
                         return JsonResponse({"success": False, "error": "Inventory item not found."}, status=400)
                 else:
                     return JsonResponse({"success": False, "error": "Invalid status transition."}, status=400)
-
             return JsonResponse({"success": True, "new_status": order.status})
-
         except Exception as e:
-            print("❌ Unexpected error:", str(e))
+            print("Error:", str(e))
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 class ProfileView(LoginRequiredMixin, View):
@@ -284,15 +277,6 @@ class ProfileView(LoginRequiredMixin, View):
         }
         return render(request, self.template_name, context)
 
-
-import pandas as pd
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.http import JsonResponse
-from django.views import View
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from Inventory.forms import ExcelUploadForm
-from Inventory.models import InventoryItem
 
 class UploadInventoryView(LoginRequiredMixin, UserPassesTestMixin, View):
     def test_func(self):
@@ -408,3 +392,53 @@ def list_categories(request):
 def list_units(request):
     units = list(Unit.objects.values('id', 'name'))
     return JsonResponse({'units': units})
+
+
+class MaterialReceiptView(LoginRequiredMixin, View):
+    template_name = 'Inventory/material_receipt.html'
+
+    def get(self, request):
+        if request.user.is_superuser:
+            items = InventoryItem.objects.all()
+        else:
+            items = InventoryItem.objects.filter(group__in=request.user.groups.all())
+
+        formset = MaterialOrderFormSet(form_kwargs={'user': request.user})
+        inventory_items = list(items.values('name', 'category__name', 'unit__name', 'code'))
+
+        return render(request, self.template_name, {
+            'formset': formset,
+            'items': items,
+            'inventory_items': json.dumps(inventory_items)
+        })
+
+    def post(self, request):
+        formset = MaterialOrderFormSet(request.POST, form_kwargs={'user': request.user})
+        if formset.is_valid():
+            for form in formset:
+                if form.cleaned_data:
+                    material_order = form.save(commit=False)
+                    selected_item = InventoryItem.objects.filter(name=form.cleaned_data['name']).first()
+                    if selected_item:
+                        material_order.category = selected_item.category
+                        material_order.code = selected_item.code
+                        material_order.unit = selected_item.unit
+                    material_order.user = request.user
+                    material_order.group = request.user.groups.first() if request.user.groups.exists() else None
+                    material_order.request_type = 'Receipt'  # Set as Receipt Request
+                    material_order.save()
+            messages.success(request, "Material receipts submitted successfully!")
+            return redirect('material_orders')
+        else:
+            print("Formset errors:", formset.errors)
+            messages.error(request, "There was an error with your submission.")
+
+        if request.user.is_superuser:
+            items = InventoryItem.objects.all()
+        else:
+            items = InventoryItem.objects.filter(group__in=request.user.groups.all())
+        return render(request, self.template_name, {
+            'formset': formset,
+            'items': items,
+            'inventory_items': json.dumps(list(items.values('name', 'category__name', 'unit__name', 'code')))
+        })
